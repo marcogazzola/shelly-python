@@ -1,0 +1,9 @@
+.PHONY: tests coverage
+
+tests:
+	nosetests tests
+
+coverage:
+	nosetests --with-coverage --cover-branches --cover-package=shellypython tests
+	coverage html --include='shellypython*'
+
