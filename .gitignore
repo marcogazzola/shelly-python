@@ -1,20 +1,10 @@
-#__pycache__
-#.vscode
-#*.pyc
-#**/dist/
-#**/build/
-#**/.tox/
-#*.egg-info
-#.coverage
-#*travis.log
-#*input.txt
-#**/htmlcov/
+newchanges
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
+**.vscode/
 # C extensions
 *.so
 
