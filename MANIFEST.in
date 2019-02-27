@@ -1,9 +1,8 @@
-include Maketest
-include LICENSE
+include *.md
+include *.rst
+include *.txt
 include .flake8.ini
-include README.md
-include CHANGELOG.md
-include *requirements.txt
-include setup.py
-include test*.py
+include LICENSE
+include tox.ini
+recursive-include shellypython *.py
 graft tests
