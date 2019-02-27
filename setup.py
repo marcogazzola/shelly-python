@@ -22,7 +22,7 @@ setuptools.setup(
     author="Marco Gazzola",
     description="Python interface for Shelly.cloud devices.",
     long_description=readme(),
-    long_description_content_type="text/markdown",
+    long_description_content_type="text/x-rst",
     url="https://github.com/marcogazzola/shelly-python",
     download_url='https://github.com/marcogazzola/shelly-python/tarball/%s' % (
         shellypython.__version__),
