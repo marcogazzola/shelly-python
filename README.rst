@@ -1,7 +1,7 @@
 shelly-python
 ==============
 
-|PyPI version| |Python versions| |Build Status| |Code Health| |Coverage Status| |Hound|
+|PyPI version| |Python versions| |Build Status| |Coverage Status| |Hound|
 
 Package for integrating with Shelly.Cloud Device
 
@@ -29,7 +29,7 @@ Running the full test suite for multiple python versions
    :target: https://pypi.python.org/pypi/shellypython/
 .. |Build Status| image:: https://img.shields.io/travis/marcogazzola/shelly-python/master.svg
    :target: https://travis-ci.org/marcogazzola/shelly-python
-.. |Code Health| image:: https://landscape.io/github/marcogazzola/shelly-python/master/landscape.svg?style=flat
+.. |Code Health| image:: https://landscape.io/github/marcogazzola/shelly-python/landscape.svg?style=flat
    :target: https://landscape.io/github/marcogazzola/shelly-python/master
 .. |Coverage Status| image:: https://coveralls.io/repos/github/marcogazzola/shelly-python/badge.svg?branch=master
    :target: https://coveralls.io/github/marcogazzola/shelly-python?branch=master

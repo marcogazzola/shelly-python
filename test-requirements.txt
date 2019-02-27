@@ -3,3 +3,4 @@ nose
 unittest2
 pytest
 pytest-cov
+pytest-custom_exit_code
