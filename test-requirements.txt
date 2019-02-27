@@ -1,5 +1,4 @@
 coverage
-nose
 unittest2
 pytest
 pytest-cov
