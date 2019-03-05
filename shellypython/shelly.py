@@ -109,18 +109,18 @@ class Shelly():
                 json_obj = json.loads(json_response)
 
                 self.host_name = (
-                    None 
-                    if 'device' not in json_obj or 'hostname' not in json_obj['device'] 
+                    None
+                    if 'device' not in json_obj or 'hostname' not in json_obj['device']
                     else json_obj['device']['hostname'])
                 _model = (
-                    None 
+                    None
                     if 'device' not in json_obj or 'type' not in json_obj['device']
                     else json_obj['device']['type']
                     )
                 self.model = Get_item_safe(SHELLY_MODEL, _model, 'undefined')
                 _working_mode = (
-                    None 
-                    if 'mode' not in json_obj 
+                    None
+                    if 'mode' not in json_obj
                     else json_obj['mode']
                     )
                 self.working_mode = Get_item_safe(SHELLY_WORKING_MODE, _working_mode, 'undefined')
