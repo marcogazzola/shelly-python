@@ -1,14 +1,16 @@
-import requests
-from .const import (DEVICE_READY, DEVICE_NOT_READY)
-from .exception import (ShellyException, ShellyNetworkException, ShellyUnreachableException)
-from .pyjson import PyJSON
-from .AbstractBase import AbstractBase
+import asyncio
+import json
+from .const import (
+    DEVICE_READY, DEVICE_NOT_READY, SHELLY_MODEL, SHELLY_WORKING_MODE
+    )
+from .exception import (ShellyException)
+from .helpers import (Get_item_safe, Call_shelly_api)
 import logging
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class Shelly(AbstractBase):
+class Shelly():
     """Represents a Shelly device base class"""
 
     def __init__(self, address):
@@ -18,120 +20,217 @@ class Shelly(AbstractBase):
 
         self.__api_address = "http://" + address if not address.startswith('http://') else address
         _LOGGER.debug("Api address: %s", self.__api_address)
-        self.shelly_status = None
-        self.shelly_attributes = None
+        self.model = None
+        self.working_mode = None
+        self.host_name = None
+        self.main_status = None
 
-    def shelly_status_api(self):
+        self.wifi_sta = None
+        self.system = None
+        self.cloud = None
+        self.mqtt = None
+        self.firmware = None
+
+    def update_data(self):
+        """Update all shelly informations"""
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(self.__update_data())
+        return self
+
+    @asyncio.coroutine
+    def __update_data(self):
+        """Update all shelly informations"""
+        loop = asyncio.get_event_loop()
+        api_status_req = loop.run_in_executor(None, self.__get_status_api)
+        api_base_info_req = loop.run_in_executor(None, self.__get_base_info_api)
+        api_status_res = yield from api_status_req
+        api_base_info_res = yield from api_base_info_req
+
+        self.__set_status_api(api_status_res)
+        self.__set_base_info_api(api_base_info_res)
+
+    def __get_status_api(self):
         """Get RAW shelly status"""
-        from requests.exceptions import RequestException
-        _LOGGER.debug("shelly_status_api")
         try:
-            _LOGGER.warning(self.__api_address + "/status")
-            r = requests.get(self.__api_address + "/status")
-            if (r.status_code != 200):
-                _LOGGER.error(r.status_code)
-                raise ShellyUnreachableException("Invalid status code %s" % r.status_code)
-            return r.json()
-        except RequestException as err:
-            _LOGGER.error(err)
-            _LOGGER.error("Shelly not responding at address %s" % self.device_address)
-            raise ShellyNetworkException(
-                message="Shelly not responding at address %s" % self.device_address)
+            return Call_shelly_api(url=self.__api_address + "/status")
+        except ShellyException as err:
+            _LOGGER.warning(err)
 
-    def get_shelly_status(self, api_status=None):
+    def __set_status_api(self, json_response):
         """Get Shelly status thought api"""
         try:
-            json_response = api_status if api_status is None else self.shelly_status_api()
             try:
-                json_obj = PyJSON(json_response)
-                attributes = Attributes(
-                    json_obj.mac, json_obj.ram_total, json_obj.ram_free,
-                    json_obj.fs_size, json_obj.fs_free, json_obj.uptime)
-                attributes.wifi_sta = Wifi_sta(
-                    json_obj.wifi_sta.connected, json_obj.wifi_sta.ssid,
-                    json_obj.wifi_sta.ip, json_obj.wifi_sta.rssi)
-                attributes.mqtt = Mqtt(json_obj.mqtt.connected)
-                attributes.cloud = Cloud(json_obj.cloud.connected, json_obj.cloud.enabled)
-                attributes.update = Update(
-                    json_obj.update.new_version, json_obj.update.old_version,
-                    json_obj.update.status, json_obj.update.has_update)
+                json_obj = None
+                if json_response is None:
+                    self.main_status = DEVICE_NOT_READY
+                    json_response = "{}"
+                else:
+                    self.main_status = DEVICE_READY
 
-                self.shelly_attributes = attributes
-                self.shelly_status = DEVICE_READY
-            except Exception:
-                _LOGGER.error("Error during parse json result.")
-                raise ShellyException
+                json_obj = json.loads(json_response)
+
+                self.system = System(json_response)
+                self.firmware = (
+                    Firmware() if 'update' not in json_obj
+                    else Firmware(json.dumps(json_obj['update']))
+                    )
+                self.mqtt = (
+                    Mqtt() if 'mqtt' not in json_obj else Mqtt(json.dumps(json_obj['mqtt'])))
+                self.cloud = (
+                    Cloud() if 'cloud' not in json_obj else Cloud(json.dumps(json_obj['cloud'])))
+                self.wifi_sta = (
+                    Wifi_sta() if 'wifi_sta' not in json_obj
+                    else Wifi_sta(json.dumps(json_obj['wifi_sta']))
+                    )
+            except json.JSONDecodeError as err:
+                raise ShellyException(err)
         except ShellyException as err:
-            self.shelly_status = DEVICE_NOT_READY
-            self.shelly_attributes = None
-            _LOGGER.error(err)
+            _LOGGER.warning(err)
+            self.main_status = DEVICE_NOT_READY
 
-        _LOGGER.debug("shelly_status: %s", self.shelly_status)
+        _LOGGER.debug("main_status: %s", self.main_status)
 
         return self
 
+    def __get_base_info_api(self):
+        """Get RAW shelly base info"""
+        try:
+            return Call_shelly_api(url=self.__api_address + "/settings")
+        except ShellyException as err:
+            _LOGGER.warning(err)
 
-class Attributes(AbstractBase):
-    """Represents Shelly attributes"""
+    def __set_base_info_api(self, json_response):
+        """Get Shelly status thought api"""
+        try:
+            try:
+                json_obj = None
+                if json_response is None:
+                    json_response = "{}"
+                json_obj = json.loads(json_response)
 
-    def __init__(
-            self, mac=None, ram_total=None,
-            ram_free=None, fs_size=None, fs_free=None,
-            uptime=None
-            ):
-        """Initialize attribute class"""
-        self.mac = mac
-        self.ram_total = ram_total
-        self.ram_free = ram_free
-        self.fs_size = fs_size
-        self.fs_free = fs_free
-        self.uptime = uptime
-        self.wifi_sta = Wifi_sta()
-        self.cloud = Cloud()
-        self.mqtt = Mqtt()
-        self.update = Update()
+                self.host_name = (
+                    None 
+                    if 'device' not in json_obj or 'hostname' not in json_obj['device'] 
+                    else json_obj['device']['hostname'])
+                _model = (
+                    None 
+                    if 'device' not in json_obj or 'type' not in json_obj['device']
+                    else json_obj['device']['type']
+                    )
+                self.model = Get_item_safe(SHELLY_MODEL, _model, 'undefined')
+                _working_mode = (
+                    None 
+                    if 'mode' not in json_obj 
+                    else json_obj['mode']
+                    )
+                self.working_mode = Get_item_safe(SHELLY_WORKING_MODE, _working_mode, 'undefined')
+
+            except json.JSONDecodeError as err:
+                _LOGGER.error("Error during parse json result.")
+                raise ShellyException(err)
+        except ShellyException as err:
+            _LOGGER.warning(err)
+            self.main_status = DEVICE_NOT_READY
+
+        _LOGGER.debug("main_status: %s", self.main_status)
 
 
-class Wifi_sta(AbstractBase):
+class BaseShellyAttribute():
+    """Represents Sehlly base class"""
+
+    def __init__(self, json_def=None):
+        """Initialize Wifi_sta class"""
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+    def as_dict(self):
+        return self.__dict__
+
+
+class System(BaseShellyAttribute):
+    """Represents System attributes"""
+
+    def __init__(self, json_def=None):
+        """Initialize System class"""
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+
+        self.mac = None if 'mac' not in json_obj else json_obj['mac']
+        self.ram_total = None if 'ram_total' not in json_obj else json_obj['ram_total']
+        self.ram_free = None if 'ram_free' not in json_obj else json_obj['ram_free']
+        self.fs_size = None if 'fs_size' not in json_obj else json_obj['fs_size']
+        self.fs_free = None if 'fs_free' not in json_obj else json_obj['fs_free']
+        self.uptime = None if 'uptime' not in json_obj else json_obj['uptime']
+        self.has_update = False if 'has_update' not in json_obj else json_obj['has_update']
+
+
+class Rele(BaseShellyAttribute):
+    """Represents relè base class"""
+
+
+class Wifi_sta(BaseShellyAttribute):
     """Represents Wifi_sta attributes"""
 
-    def __init__(
-            self, connected=False, ssid=None,
-            ip=None, rssi=None
-            ):
+    def __init__(self, json_def=None):
         """Initialize Wifi_sta class"""
-        self.connected = connected
-        self.ssid = ssid
-        self.ip = ip
-        self.rssi = rssi
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+        self.connected = False if 'connected' not in json_obj else json_obj['connected']
+        self.ssid = None if 'ssid' not in json_obj else json_obj['ssid']
+        self.ip = None if 'ip' not in json_obj else json_obj['ip']
+        self.rssi = None if 'rssi' not in json_obj else json_obj['rssi']
 
 
-class Cloud(AbstractBase):
+class Cloud(BaseShellyAttribute):
     """Represents Cloud attributes"""
 
-    def __init__(self, connected=False, enabled=False):
+    def __init__(self, json_def=None):
         """Initialize Cloud class"""
-        self.connected = connected
-        self.enabled = enabled
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+        self.connected = False if 'connected' not in json_obj else json_obj['connected']
+        self.enabled = False if 'connected' not in json_obj else json_obj['connected']
 
 
-class Mqtt(AbstractBase):
+class Mqtt(BaseShellyAttribute):
     """Represents Mqtt attributes"""
 
-    def __init__(self, connected=False):
+    def __init__(self, json_def=None):
         """Initialize Mqtt class"""
-        self.connected = connected
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+        self.connected = False if 'connected' not in json_obj else json_obj['connected']
 
 
-class Update(AbstractBase):
-    """Represents Update attributes"""
+class Firmware(BaseShellyAttribute):
+    """Represents Firmware attributes"""
 
-    def __init__(
-            self, new_version=None, old_version=None,
-            status=None, has_update=False
-            ):
-        """Initialize Update class"""
-        self.new_version = new_version
-        self.old_version = old_version
-        self.status = status
-        self.has_update = has_update
+    def __init__(self, json_def=None):
+        """Initialize Firmware class"""
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+        self.has_update = False if 'has_update' not in json_obj else json_obj['has_update']
+        self.new_version = None if 'new_version' not in json_obj else json_obj['new_version']
+        self.old_version = None if 'old_version' not in json_obj else json_obj['old_version']
+        self.status = None if 'status' not in json_obj else json_obj['status']

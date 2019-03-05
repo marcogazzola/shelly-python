@@ -10,6 +10,7 @@
 #*input.txt
 #**/htmlcov/
 
+.coveralls.yml
 newchanges
 .vscode
 
@@ -61,7 +62,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
-
+asset/
 # Translations
 *.mo
 *.pot
@@ -119,3 +120,5 @@ venv.bak/
 .mypy_cache/
 
 **mocking/
+
+shellypython/test2.py

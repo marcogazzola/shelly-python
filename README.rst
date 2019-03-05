@@ -9,13 +9,13 @@ Package for integrating with Shelly.Cloud Device
 Supported devices
 -----------------
 
-======== ==========
-Model    Api status
--------- ----------
-Shelly1       x     
--------- ----------
-Shelly2       x     
-======== ==========
+======== ========== ============
+Model    Api status Api settings
+-------- ---------- ------------
+Shelly1       x           x     
+-------- ---------- ------------
+Shelly2       x           x     
+======== ========== ============
 
 
 Running the full test suite for multiple python versions

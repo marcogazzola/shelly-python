@@ -23,3 +23,12 @@ class ShellyUnreachableException(ShellyNetworkException):
         super(ShellyUnreachableException, self).__init__(message)
         # Now for your custom code...
         self.errors = errors
+
+
+class ShellyEmptyResponse(ShellyNetworkException):
+    """Shelly not available exception"""
+    def __init__(self, message=None, errors=None):
+        # Call the base class constructor with the parameters it needs
+        super(ShellyEmptyResponse, self).__init__(message)
+        # Now for your custom code...
+        self.errors = errors
