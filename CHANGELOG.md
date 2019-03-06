@@ -1,5 +1,40 @@
 # Change Log
 
+## [0.0.3](https://github.com/marcogazzola/shelly-python/tree/0.0.3) (2019-03-06)
+
+Code is complete refactored and optimized.
+
+This release adds support for the following properties:
+* main_status
+* hostname
+* working_mode
+* shelly_model
+* wifi_sta
+    * connected
+    * ssid
+    * ip
+    * rssi
+* system
+    * mac
+    * ram_total
+    * ram_free
+    * fs_size
+    * fs_free
+    * uptime
+    * has_update
+* cloud
+    * connected
+    * enabled
+* mqtt
+    * connected
+* firmware
+    * has_update
+    * new_version
+    * old_version
+    * status
+
+Added unit test, test coverage and Tox tool.
+
 ## [0.0.1](https://github.com/marcogazzola/shelly-python/tree/0.0.1) (2019-02-27)
 
 First release

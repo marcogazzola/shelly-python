@@ -7,7 +7,7 @@ nano shellypython/__init__.py
 ``` bash
 # gem install github_changelog_generator --pre
 # export CHANGELOG_GITHUB_TOKEN=token
-github_changelog_generator --user marcogazzola --project shelly-python --since-tag 0.0.1 -o newchanges
+github_changelog_generator --user marcogazzola --project shelly-python --since-tag 0.0.2 -o newchanges
 ```
 
 3.  Copy the changelog block over to CHANGELOG.md.
