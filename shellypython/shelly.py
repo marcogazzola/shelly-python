@@ -1,7 +1,9 @@
 import asyncio
 import json
 from .const import (
-    DEVICE_READY, DEVICE_NOT_READY, SHELLY_MODEL, SHELLY_WORKING_MODE
+    DEVICE_READY, DEVICE_NOT_READY, SHELLY_MODEL, SHELLY_WORKING_MODE,
+    WORKING_MODE_RELAY, WORKING_MODE_ROLLER, ISON_ON, ISON_OFF,
+    UNDEFINED_VALUE
     )
 from .exception import (ShellyException)
 from .helpers import (Get_item_safe, Call_shelly_api)
@@ -20,7 +22,9 @@ class Shelly():
 
         self.__api_address = "http://" + address if not address.startswith('http://') else address
         _LOGGER.debug("Api address: %s", self.__api_address)
+        self.model_raw = None
         self.model = None
+        self.working_mode_raw = None
         self.working_mode = None
         self.host_name = None
         self.main_status = None
@@ -30,6 +34,8 @@ class Shelly():
         self.cloud = None
         self.mqtt = None
         self.firmware = None
+        self.relays = None
+        self.rollers = None
 
     def update_data(self):
         """Update all shelly informations"""
@@ -41,13 +47,13 @@ class Shelly():
     def __update_data(self):
         """Update all shelly informations"""
         loop = asyncio.get_event_loop()
-        api_status_req = loop.run_in_executor(None, self.__get_status_api)
         api_base_info_req = loop.run_in_executor(None, self.__get_base_info_api)
+        api_status_req = loop.run_in_executor(None, self.__get_status_api)
         api_status_res = yield from api_status_req
         api_base_info_res = yield from api_base_info_req
 
-        self.__set_status_api(api_status_res)
         self.__set_base_info_api(api_base_info_res)
+        self.__set_status_api(api_status_res)
 
     def __get_status_api(self):
         """Get RAW shelly status"""
@@ -82,6 +88,21 @@ class Shelly():
                     Wifi_sta() if 'wifi_sta' not in json_obj
                     else Wifi_sta(json.dumps(json_obj['wifi_sta']))
                     )
+                if self.working_mode_raw is None or self.working_mode_raw == WORKING_MODE_ROLLER:
+                    rollers_dict = (
+                        None if 'rollers' not in json_obj else json_obj['rollers'])
+                    self.rollers = (
+                        None if rollers_dict is None
+                        else list(map(lambda x: Roller(json.dumps(x)), rollers_dict))
+                        )
+                if self.working_mode_raw is None or self.working_mode_raw == WORKING_MODE_RELAY:
+                    relays_dict = (
+                        None if 'relays' not in json_obj else json_obj['relays'])
+                    self.relays = (
+                        None if relays_dict is None
+                        else list(map(lambda x: Relay(json.dumps(x)), relays_dict))
+                        )
+
             except json.JSONDecodeError as err:
                 raise ShellyException(err)
         except ShellyException as err:
@@ -112,18 +133,19 @@ class Shelly():
                     None
                     if 'device' not in json_obj or 'hostname' not in json_obj['device']
                     else json_obj['device']['hostname'])
-                _model = (
+                self.model_raw = (
                     None
                     if 'device' not in json_obj or 'type' not in json_obj['device']
                     else json_obj['device']['type']
                     )
-                self.model = Get_item_safe(SHELLY_MODEL, _model, 'undefined')
-                _working_mode = (
+                self.model = Get_item_safe(SHELLY_MODEL, self.model_raw, 'undefined')
+                self.working_mode_raw = (
                     None
                     if 'mode' not in json_obj
                     else json_obj['mode']
                     )
-                self.working_mode = Get_item_safe(SHELLY_WORKING_MODE, _working_mode, 'undefined')
+                self.working_mode = (
+                    Get_item_safe(SHELLY_WORKING_MODE, self.working_mode_raw, 'undefined'))
 
             except json.JSONDecodeError as err:
                 _LOGGER.error("Error during parse json result.")
@@ -169,8 +191,44 @@ class System(BaseShellyAttribute):
         self.has_update = False if 'has_update' not in json_obj else json_obj['has_update']
 
 
-class Rele(BaseShellyAttribute):
-    """Represents relè base class"""
+class Roller(BaseShellyAttribute):
+    """Represents roller shutter base class"""
+
+    def __init__(self, json_def=None):
+        """Initialize System class"""
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+        if (json_obj is not None and
+                'positioning' in json_obj and
+                json_obj['positioning'] and
+                'current_pos' in json_obj):
+            self.status = json_obj['current_pos']
+        else:
+            self.status = (
+                json_obj['state']
+                if 'current_pos' in json_obj else UNDEFINED_VALUE
+                )
+
+
+class Relay(BaseShellyAttribute):
+    """Represents relay base class"""
+
+    def __init__(self, json_def=None):
+        """Initialize System class"""
+        if json_def is None:
+            json_obj = {}
+        else:
+            json_obj = json.loads(json_def)
+        self.__dict__ = json_obj
+
+        self.status = (
+            ISON_OFF if 'ison' not in json_obj
+            else ISON_ON if json_obj['ison'] else ISON_OFF
+            )
 
 
 class Wifi_sta(BaseShellyAttribute):

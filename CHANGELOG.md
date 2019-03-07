@@ -1,5 +1,25 @@
 # Change Log
 
+## [0.0.4](https://github.com/marcogazzola/shelly-python/tree/0.0.4) (2019-03-07)
+
+In this version, was added the following information:
+* relay (List of relay. Visible only if working mode is Relay)
+    * ison
+    * has_timer
+    * status
+* roller (List of roller. Visible only if working mode is Roller shutter)
+    * state
+    * stop
+    * power
+    * is_valid
+    * safety_switch
+    * stop_reason
+    * last_direction
+    * current_pos
+    * calibrating
+    * positioning
+    * status
+
 ## [0.0.3](https://github.com/marcogazzola/shelly-python/tree/0.0.3) (2019-03-06)
 
 Code is complete refactored and optimized.

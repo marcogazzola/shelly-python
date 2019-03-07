@@ -1,5 +1,5 @@
 import unittest as unittest
-from shellypython.shelly import (Shelly, BaseShellyAttribute, System)
+from shellypython.shelly import (Shelly, BaseShellyAttribute, System, Roller, Relay)
 import responses
 import json
 import logging
@@ -31,7 +31,7 @@ class TestShelly(unittest.TestCase):
             body="fakeresult",
             status=200,
             content_type='application/json'
-            )
+        )
 
         self.assertIsInstance(self.shelly_obj.update_data(), Shelly)
 
@@ -43,7 +43,7 @@ class TestShelly(unittest.TestCase):
             body="fakeresult",
             status=200,
             content_type='application/json'
-            )
+        )
 
         self.assertIsInstance(self.shelly_obj.update_data(), Shelly)
 
@@ -61,6 +61,33 @@ class TestShelly(unittest.TestCase):
         self.testobj = {'field1': 'val1', 'field2': 'val2'}
         x = System(None)
         self.assertIsInstance(x, System)
+
+    def test_BaseShellyAttribute4(self):
+        x = BaseShellyAttribute(None)
+        self.assertIsInstance(x.as_dict(), dict)
+
+    def test_Roller1(self):
+        x = Roller(None)
+        self.assertIsInstance(x, Roller)
+        self.assertIsInstance(x.as_dict(), dict)
+
+    def test_Roller2(self):
+        obj = {'state': 'stop', 'current_pos': 95,
+               'calibrating': False, 'positioning': True, 'status': 95}
+        x = Roller(json.dumps(obj))
+        self.assertIsInstance(x, Roller)
+        self.assertIsInstance(x.as_dict(), dict)
+
+    def test_Relay1(self):
+        x = Relay(None)
+        self.assertIsInstance(x, Relay)
+        self.assertIsInstance(x.as_dict(), dict)
+
+    def test_Relay2(self):
+        obj = {'ison': False}
+        x = Relay(json.dumps(obj))
+        self.assertIsInstance(x, Relay)
+        self.assertIsInstance(x.as_dict(), dict)
 
 
 if __name__ == '__main__':
