@@ -6,7 +6,7 @@ from .const import (
     UNDEFINED_VALUE
     )
 from .exception import (ShellyException)
-from .helpers import (Get_item_safe, Call_shelly_api)
+from .helpers import (Get_item_safe, Call_shelly_api, Rssi_to_percentage)
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class Shelly():
 
     def __init__(self, address):
         """Initialize Shelly base class"""
-
+        self.loop = asyncio.new_event_loop()
         self.device_address = address
 
         self.__api_address = "http://" + address if not address.startswith('http://') else address
@@ -39,16 +39,16 @@ class Shelly():
 
     def update_data(self):
         """Update all shelly informations"""
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.__update_data())
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self.__update_data())
         return self
 
     @asyncio.coroutine
     def __update_data(self):
         """Update all shelly informations"""
-        loop = asyncio.get_event_loop()
-        api_base_info_req = loop.run_in_executor(None, self.__get_base_info_api)
-        api_status_req = loop.run_in_executor(None, self.__get_status_api)
+        # loop = asyncio.get_event_loop()
+        api_base_info_req = self.loop.run_in_executor(None, self.__get_base_info_api)
+        api_status_req = self.loop.run_in_executor(None, self.__get_status_api)
         api_status_res = yield from api_status_req
         api_base_info_res = yield from api_base_info_req
 
@@ -246,6 +246,7 @@ class Wifi_sta(BaseShellyAttribute):
         self.ssid = None if 'ssid' not in json_obj else json_obj['ssid']
         self.ip = None if 'ip' not in json_obj else json_obj['ip']
         self.rssi = None if 'rssi' not in json_obj else json_obj['rssi']
+        self.quality = Rssi_to_percentage(self.rssi)
 
 
 class Cloud(BaseShellyAttribute):

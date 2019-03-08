@@ -1,7 +1,7 @@
 import unittest as unittest
 from unittest.mock import patch
 from shellypython.shelly import (Shelly, Cloud, System, Wifi_sta, Firmware, Mqtt)
-from shellypython.helpers import (Call_shelly_api, Get_item_safe)
+from shellypython.helpers import (Call_shelly_api, Get_item_safe, Rssi_to_percentage)
 from shellypython.exception import (ShellyNetworkException, ShellyUnreachableException)
 import responses
 
@@ -113,9 +113,12 @@ class TestHelpers(unittest.TestCase):
         self.assertIsInstance(self.shelly.system, System)
         self.assertIsInstance(self.shelly.firmware, Firmware)
         self.assertIsInstance(self.shelly.mqtt, Mqtt)
-
         self.assertIsNone(self.shelly.wifi_sta.ssid)
 
+    def test_Rssi_to_percentage(self):
+        self.assertTrue(Rssi_to_percentage(-50) <= 100)
+        self.assertTrue(Rssi_to_percentage(-50) >= 0)
+        self.assertTrue(Rssi_to_percentage(-10) >= 0)
 
 if __name__ == '__main__':
     unittest.main()

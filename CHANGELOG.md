@@ -19,6 +19,9 @@ In this version, was added the following information:
     * calibrating
     * positioning
     * status
+* wifi_sta
+    * quality
+
 
 ## [0.0.3](https://github.com/marcogazzola/shelly-python/tree/0.0.3) (2019-03-06)
 
