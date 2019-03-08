@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.0.4](https://github.com/marcogazzola/shelly-python/tree/0.0.4) (2019-03-07)
+## [0.0.4b1](https://github.com/marcogazzola/shelly-python/tree/0.0.4b1) (2019-03-08)
 
 In this version, was added the following information:
 * relay (List of relay. Visible only if working mode is Relay)
