@@ -28,3 +28,8 @@ def Call_shelly_api(url, username=None, password=None):
     except RequestException:
         raise ShellyNetworkException(
             message="Shelly not responding at address %s" % url)
+
+
+def Rssi_to_percentage(rssi=0):
+    """Conversion from RSSI to Percent"""
+    return min(max(2 * (0 if rssi is None else rssi + 100), 0), 100)
