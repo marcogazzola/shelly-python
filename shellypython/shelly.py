@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 from .const import (
     DEVICE_READY, DEVICE_NOT_READY, SHELLY_MODEL, SHELLY_WORKING_MODE,
@@ -38,6 +39,7 @@ class Shelly():
         self.firmware = None
         self.relays = None
         self.rollers = None
+        self.settings_last_refresh = None
 
     def update_data(self):
         """Update all shelly informations"""
@@ -49,12 +51,15 @@ class Shelly():
     def __update_data(self):
         """Update all shelly informations"""
         # loop = asyncio.get_event_loop()
-        api_base_info_req = self.loop.run_in_executor(None, self.__get_base_info_api)
         api_status_req = self.loop.run_in_executor(None, self.__get_status_api)
+        if self.settings_last_refresh is None:
+            api_base_info_req = self.loop.run_in_executor(None, self.__get_base_info_api)
         api_status_res = yield from api_status_req
-        api_base_info_res = yield from api_base_info_req
+        if self.settings_last_refresh is None:
+            api_base_info_res = yield from api_base_info_req
 
-        self.__set_base_info_api(api_base_info_res)
+        if self.settings_last_refresh is None:
+            self.__set_base_info_api(api_base_info_res)
         self.__set_status_api(api_status_res)
 
     def __get_status_api(self):
@@ -154,6 +159,8 @@ class Shelly():
                     )
                 self.working_mode = (
                     Get_item_safe(SHELLY_WORKING_MODE, self.working_mode_raw, 'undefined'))
+
+                self.settings_last_refresh = datetime.datetime.now()
 
             except json.JSONDecodeError as err:
                 _LOGGER.error("Error during parse json result.")
