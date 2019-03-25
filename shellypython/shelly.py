@@ -65,7 +65,7 @@ class Shelly():
                 username=self.username,
                 password=self.password)
         except ShellyException as err:
-            _LOGGER.warning(err)
+            _LOGGER.debug(err)
 
     def __set_status_api(self, json_response):
         """Get Shelly status thought api"""
@@ -111,7 +111,7 @@ class Shelly():
             except json.JSONDecodeError as err:
                 raise ShellyException(err)
         except ShellyException as err:
-            _LOGGER.warning(err)
+            _LOGGER.debug(err)
             self.main_status = DEVICE_NOT_READY
 
         _LOGGER.debug("main_status: %s", self.main_status)
@@ -126,7 +126,7 @@ class Shelly():
                 username=self.username,
                 password=self.password)
         except ShellyException as err:
-            _LOGGER.warning(err)
+            _LOGGER.debug(err)
 
     def __set_base_info_api(self, json_response):
         """Get Shelly status thought api"""
@@ -159,7 +159,7 @@ class Shelly():
                 _LOGGER.error("Error during parse json result.")
                 raise ShellyException(err)
         except ShellyException as err:
-            _LOGGER.warning(err)
+            _LOGGER.debug(err)
             self.main_status = DEVICE_NOT_READY
 
         _LOGGER.debug("main_status: %s", self.main_status)
