@@ -14,12 +14,12 @@ github_changelog_generator --user marcogazzola --project shelly-python --since-t
 
 4.  Commit the changed files
 ``` bash
-git commit -av -m "version 0.1.0b2"
+git commit -av -m "version 0.1.1"
 ```
 
 5.  Tag a release (and add short changelog as a tag commit message)
 ``` bash
-git tag -a 0.1.0b2 -m "version 0.1.0b2"
+git tag -a 0.1.1 -m "version 0.1.1"
 ```
 
 6.  Push to git

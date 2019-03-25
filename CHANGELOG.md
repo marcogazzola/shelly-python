@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.1.0b2](https://github.com/marcogazzola/shelly-python/tree/0.1.0b2) (2019-03-25)
+## [0.1.1](https://github.com/marcogazzola/shelly-python/tree/0.1.1) (2019-03-25)
 
 Added basic authentication to Shelly api
 
