@@ -122,3 +122,5 @@ venv.bak/
 **mocking/
 
 shellypython/test2.py
+
+mprofile*

@@ -15,10 +15,12 @@ _LOGGER = logging.getLogger(__name__)
 class Shelly():
     """Represents a Shelly device base class"""
 
-    def __init__(self, address):
+    def __init__(self, address, username=None, password=None):
         """Initialize Shelly base class"""
         self.loop = asyncio.new_event_loop()
         self.device_address = address
+        self.username = username
+        self.password = password
 
         self.__api_address = "http://" + address if not address.startswith('http://') else address
         _LOGGER.debug("Api address: %s", self.__api_address)
@@ -58,7 +60,8 @@ class Shelly():
     def __get_status_api(self):
         """Get RAW shelly status"""
         try:
-            return Call_shelly_api(url=self.__api_address + "/status")
+            return Call_shelly_api(url=self.__api_address + "/status", 
+                username=self.username, password=self.password)
         except ShellyException as err:
             _LOGGER.warning(err)
 
@@ -116,7 +119,8 @@ class Shelly():
     def __get_base_info_api(self):
         """Get RAW shelly base info"""
         try:
-            return Call_shelly_api(url=self.__api_address + "/settings")
+            return Call_shelly_api(url=self.__api_address + "/settings", 
+                username=self.username, password=self.password)
         except ShellyException as err:
             _LOGGER.warning(err)
 

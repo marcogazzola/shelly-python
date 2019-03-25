@@ -19,7 +19,7 @@ git commit -av
 
 5.  Tag a release (and add short changelog as a tag commit message)
 ``` bash
-git tag -a 0.0.3 -m "version 0.0.4b0"
+git tag -a 0.1.0b0 -m "version 0.1.0b0"
 ```
 
 6.  Push to git

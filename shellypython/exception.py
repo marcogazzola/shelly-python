@@ -32,3 +32,12 @@ class ShellyEmptyResponse(ShellyNetworkException):
         super(ShellyEmptyResponse, self).__init__(message)
         # Now for your custom code...
         self.errors = errors
+
+
+class ShellyAccessForbitten(ShellyNetworkException):
+    """Shelly login is wrong exception"""
+    def __init__(self, message=None, errors=None):
+        # Call the base class constructor with the parameters it needs
+        super(ShellyAccessForbitten, self).__init__(message)
+        # Now for your custom code...
+        self.errors = errors
