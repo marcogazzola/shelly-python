@@ -60,8 +60,10 @@ class Shelly():
     def __get_status_api(self):
         """Get RAW shelly status"""
         try:
-            return Call_shelly_api(url=self.__api_address + "/status", 
-                username=self.username, password=self.password)
+            return Call_shelly_api(
+                url=self.__api_address + "/status",
+                username=self.username,
+                password=self.password)
         except ShellyException as err:
             _LOGGER.warning(err)
 
@@ -119,8 +121,10 @@ class Shelly():
     def __get_base_info_api(self):
         """Get RAW shelly base info"""
         try:
-            return Call_shelly_api(url=self.__api_address + "/settings", 
-                username=self.username, password=self.password)
+            return Call_shelly_api(
+                url=self.__api_address + "/settings",
+                username=self.username,
+                password=self.password)
         except ShellyException as err:
             _LOGGER.warning(err)
 

@@ -1,5 +1,4 @@
 import requests
-from requests.auth import HTTPBasicAuth
 from .const import REQUEST_TIMEOUT
 from .exception import (
     ShellyNetworkException, ShellyUnreachableException,
@@ -17,6 +16,7 @@ def Get_item_safe(lst, idx, default):
             return default
     except KeyError:
         return default
+
 
 def Call_shelly_api(url, username=None, password=None):
     """Call shelly Api and get RAW result"""
@@ -36,6 +36,7 @@ def Call_shelly_api(url, username=None, password=None):
     except RequestException:
         raise ShellyNetworkException(
             message="Shelly not responding at address %s" % url)
+
 
 def Rssi_to_percentage(rssi=0):
     """Conversion from RSSI to Percent"""

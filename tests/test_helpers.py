@@ -1,8 +1,8 @@
 import unittest as unittest
-from unittest.mock import patch
 from shellypython.shelly import (Shelly, Cloud, System, Wifi_sta, Firmware, Mqtt)
 from shellypython.helpers import (Call_shelly_api, Get_item_safe, Rssi_to_percentage)
-from shellypython.exception import (ShellyNetworkException, ShellyUnreachableException)
+from shellypython.exception import (ShellyNetworkException, ShellyUnreachableException,
+    ShellyAccessForbitten)
 import responses
 
 
@@ -36,13 +36,43 @@ class TestHelpers(unittest.TestCase):
 
     def test_call_shelly_api_ko_net_ex(self):
         with self.assertRaises(ShellyNetworkException):
-            Call_shelly_api('192.168.1.1.1')
+            Call_shelly_api('192.168.1.1')
 
-    @patch('shellypython.helpers.requests.get')
-    def test_call_shelly_api_ko_unreach(self, mock_get):
-        mock_get.return_value.status_code.return_value = 401
-        with self.assertRaises(ShellyUnreachableException):
-            Call_shelly_api('http://127.0.0.1')
+    @responses.activate
+    def test_call_shelly_api_ko_unreach(self):
+        self.URL = 'http://fakeapi/status'
+        responses.add(
+            responses.GET, self.URL,
+            body="fakeresult",
+            status=401,
+            content_type='application/json'
+        )
+        with self.assertRaises(ShellyAccessForbitten):
+            Call_shelly_api('http://fakeapi/status')
+
+    @responses.activate
+    def test_call_shelly_api_auth_ko(self):
+        self.URL = 'http://fakeapi/status'
+        responses.add(
+            responses.GET, self.URL,
+            body="fakeresult",
+            status=401,
+            content_type='application/json'
+        )
+        with self.assertRaises(ShellyAccessForbitten):
+            Call_shelly_api('http://fakeapi/status', 'user', 'password')
+
+    @responses.activate
+    def test_call_shelly_api_auth_ok(self):
+        self.URL = 'http://fakeapi/status'
+        responses.add(
+            responses.GET, self.URL,
+            body="fakeresult",
+            status=200,
+            content_type='application/json'
+        )
+        ret_val = Call_shelly_api('http://fakeapi/status', 'user', 'password')
+        self.assertIsInstance(ret_val, str)
 
     @responses.activate
     def test_call_shelly_api_ok(self):
