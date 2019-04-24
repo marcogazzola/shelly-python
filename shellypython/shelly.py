@@ -39,7 +39,6 @@ class Shelly():
         self.firmware = None
         self.relays = None
         self.rollers = None
-        self.settings_last_refresh = None
 
     def update_data(self):
         """Update all shelly informations"""
@@ -52,21 +51,19 @@ class Shelly():
         """Update all shelly informations"""
         # loop = asyncio.get_event_loop()
         api_status_req = self.loop.run_in_executor(None, self.__get_status_api)
-        if self.settings_last_refresh is None:
-            api_base_info_req = self.loop.run_in_executor(None, self.__get_base_info_api)
+        api_base_info_req = self.loop.run_in_executor(None, self.__get_base_info_api)
         api_status_res = yield from api_status_req
-        if self.settings_last_refresh is None:
-            api_base_info_res = yield from api_base_info_req
+        api_base_info_res = yield from api_base_info_req
 
-        if self.settings_last_refresh is None:
-            self.__set_base_info_api(api_base_info_res)
+        self.__set_base_info_api(api_base_info_res)
         self.__set_status_api(api_status_res)
 
     def __get_status_api(self):
         """Get RAW shelly status"""
         try:
             return Call_shelly_api(
-                url=self.__api_address + "/status",
+                baseurl=self.__api_address,
+                url="/status",
                 username=self.username,
                 password=self.password)
         except ShellyException as err:
@@ -127,7 +124,8 @@ class Shelly():
         """Get RAW shelly base info"""
         try:
             return Call_shelly_api(
-                url=self.__api_address + "/settings",
+                baseurl=self.__api_address,
+                url="/settings",
                 username=self.username,
                 password=self.password)
         except ShellyException as err:
@@ -159,8 +157,6 @@ class Shelly():
                     )
                 self.working_mode = (
                     Get_item_safe(SHELLY_WORKING_MODE, self.working_mode_raw, 'undefined'))
-
-                self.settings_last_refresh = datetime.datetime.now()
 
             except json.JSONDecodeError as err:
                 _LOGGER.error("Error during parse json result.")
