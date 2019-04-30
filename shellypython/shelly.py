@@ -1,306 +1,221 @@
-import asyncio
-import datetime
+from datetime import datetime, timedelta
+import threading
+import socket
+import struct
 import json
-from .const import (
-    DEVICE_READY, DEVICE_NOT_READY, SHELLY_MODEL, SHELLY_WORKING_MODE,
-    WORKING_MODE_RELAY, WORKING_MODE_ROLLER, ISON_ON, ISON_OFF,
-    UNDEFINED_VALUE
+from .const import (VERSION, COAP_IP, COAP_PORT)
+from .helpers import (
+    Call_shelly_api, toString, get_device_id
     )
-from .exception import (ShellyException)
-from .helpers import (Get_item_safe, Call_shelly_api, Rssi_to_percentage)
 import logging
+from .shelly_object import (Shelly_block)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Shelly():
     """Represents a Shelly device base class"""
+    def __init__(self, username=None, password=None):
 
-    def __init__(self, address, username=None, password=None):
-        """Initialize Shelly base class"""
-        self.loop = asyncio.new_event_loop()
-        self.device_address = address
-        self.username = username
-        self.password = password
+        _LOGGER.info("Start shellypython %s", VERSION)
 
-        self.__api_address = "http://" + address if not address.startswith('http://') else address
-        _LOGGER.debug("Api address: %s", self.__api_address)
-        self.model_raw = None
-        self.model = None
-        self.working_mode_raw = None
-        self.working_mode = None
-        self.host_name = None
-        self.main_status = None
+        self.stopped = threading.Event()
+        self.coloT_blocks = {}
+        self.devices = []
+        self.coloT_blocks_added = []
+        self.coloT_blocks_updated = []
+        self.added_devices = []
+        self.removed_devices = []
+        self.master_username = username
+        self.master_password = password
+        self._udp_thread = None
+        self._socket = None
+        self.igmp_fix_enabled = False
+        self.start_socket()
 
-        self.wifi_sta = None
-        self.system = None
-        self.cloud = None
-        self.mqtt = None
-        self.firmware = None
-        self.relays = None
-        self.rollers = None
+    def init_socket(self):
+        udp_socket = socket.socket(
+            socket.AF_INET, socket.SOCK_DGRAM,
+            socket.IPPROTO_UDP)
+        udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 10)
+        udp_socket.bind(('', COAP_PORT))
+        mreq = struct.pack(
+            "=4sl", socket.inet_aton(COAP_IP),
+            socket.INADDR_ANY)
+        udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        udp_socket.settimeout(10)
+        self._socket = udp_socket
 
-    def update_data(self):
-        """Update all shelly informations"""
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_until_complete(self.__update_data())
-        return self
+    def start_socket(self):
+        self.init_socket()
+        self._udp_thread = threading.Thread(target=self._udp_reader)
+        self._udp_thread.daemon = True
+        self._udp_thread.start()
 
-    @asyncio.coroutine
-    def __update_data(self):
-        """Update all shelly informations"""
-        # loop = asyncio.get_event_loop()
-        api_status_req = self.loop.run_in_executor(None, self.__get_status_api)
-        api_base_info_req = self.loop.run_in_executor(None, self.__get_base_info_api)
-        api_status_res = yield from api_status_req
-        api_base_info_res = yield from api_base_info_req
-
-        self.__set_base_info_api(api_base_info_res)
-        self.__set_status_api(api_status_res)
-
-    def __get_status_api(self):
-        """Get RAW shelly status"""
+    def stop_socket(self):
+        self.stopped.set()
+        if self._udp_thread is not None:
+            self._udp_thread.join()
         try:
-            return Call_shelly_api(
-                baseurl=self.__api_address,
-                url="/status",
-                username=self.username,
-                password=self.password)
-        except ShellyException as err:
-            _LOGGER.debug(err)
+            self._socket.shutdown(socket.SHUT_RDWR)
+        except socket.error:
+            pass
+        self._socket.close()
 
-    def __set_status_api(self, json_response):
-        """Get Shelly status thought api"""
-        try:
+    def version(self):
+        return VERSION
+
+    def COAP_discover(self):
+        msg = bytes(b'\x50\x01\x00\x0A\xb3cit\x01d\xFF')
+        self._socket.sendto(msg, (COAP_IP, COAP_PORT))
+
+    def update_status_information(self):
+        """Update status information for all devices"""
+        for device in self.devices:
+            device.update_status_information()
+
+    def add_device(self, device, code):
+        _LOGGER.debug('Add device')
+        self.devices.append(device)
+        print(device.__dict__)
+        for callback in self.added_devices:
+            callback(device, code)
+
+    def remove_device(self, dev, code):
+        _LOGGER.debug('Remove device')
+        self.devices.remove(dev)
+        for callback in self.removed_devices:
+            callback(dev, code)
+
+    def _udp_reader(self):
+
+        next_igmp_fix = datetime.now() + timedelta(minutes=1)
+
+        while not self.stopped.isSet():
             try:
-                json_obj = None
-                if json_response is None:
-                    self.main_status = DEVICE_NOT_READY
-                    json_response = "{}"
-                else:
-                    self.main_status = DEVICE_READY
 
-                json_obj = json.loads(json_response)
+                if self.igmp_fix_enabled and datetime.now() > next_igmp_fix:
+                    _LOGGER.debug("IGMP fix")
+                    next_igmp_fix = datetime.now() + timedelta(minutes=1)
+                    mreq = struct.pack("=4sl", socket.inet_aton(COAP_IP),
+                                       socket.INADDR_ANY)
+                    print(socket.INADDR_ANY)
+                    print(mreq)
+                    try:
+                        self._socket.setsockopt(socket.IPPROTO_IP,
+                                                socket.IP_DROP_MEMBERSHIP,
+                                                mreq)
+                    except Exception as e:
+                        _LOGGER.debug("Can't drop membership, " + str(e))
+                    try:
+                        self._socket.setsockopt(socket.IPPROTO_IP,
+                                                socket.IP_ADD_MEMBERSHIP, mreq)
+                    except Exception as e:
+                        _LOGGER.debug("Can't add membership, " + str(e))
 
-                self.system = System(json_response)
-                self.firmware = (
-                    Firmware() if 'update' not in json_obj
-                    else Firmware(json.dumps(json_obj['update']))
+                _LOGGER.debug("Wait for UDP message")
+
+                try:
+                    dataTmp, addr = self._socket.recvfrom(500)
+                except socket.timeout:
+                    continue
+
+                _LOGGER.debug("Got UDP message")
+
+                data = bytearray(dataTmp)
+                _LOGGER.debug(" Data: %s", data)
+
+                byte = data[0]
+                # ver = byte >> 6
+                # typex = (byte >> 4) & 0x3
+                # tokenlen = byte & 0xF
+
+                code = data[1]
+                # msgid = 256 * data[2] + data[3]
+
+                pos = 4
+
+                _LOGGER.debug(' Code: %s', code)
+
+                if code == 30 or code == 69:
+
+                    byte = data[pos]
+                    totDelta = 0
+
+                    device_type = ''
+                    id = ''
+
+                    while byte != 0xFF:
+                        delta = byte >> 4
+                        length = byte & 0x0F
+
+                        if delta == 13:
+                            pos = pos + 1
+                            delta = data[pos] + 13
+                        elif delta == 14:
+                            pos = pos + 2
+                            delta = data[pos - 1] * 256 + data[pos] + 269
+
+                        totDelta = totDelta + delta
+
+                        if length == 13:
+                            pos = pos + 1
+                            length = data[pos] + 13
+                        elif length == 14:
+                            pos = pos + 2
+                            length = data[pos - 1] * 256 + data[pos] + 269
+
+                        value = data[pos + 1:pos + length]
+                        pos = pos + length + 1
+
+                        if totDelta == 3332:
+                            device_type, id, _ = toString(value).split('#', 2)
+
+                        byte = data[pos]
+
+                    payload = toString(data[pos + 1:])
+                    _LOGGER.debug(' Type %s, Id %s, Payload *%s*', device_type,
+                                  id, payload.replace(' ', ''))
+
+                    if id not in self.coloT_blocks:
+                        self.coloT_blocks[id] = Shelly_block(
+                            id, device_type, self,
+                            addr[0], code, useCoAP=True)
+                        for callback in self.coloT_blocks_added:
+                            callback(self.coloT_blocks[id])
+                    if code == 30:
+                        self.coloT_blocks[id].useCoAP = True
+                        self.coloT_blocks[id].update(json.loads(payload), addr[0])
+                        for callback in self.coloT_blocks_updated:
+                            callback(self.coloT_blocks[id])
+
+            except Exception as e:
+                _LOGGER.exception("Error receiving UDP: %s", e)
+
+    def manual_add_device(self, ip_address, username=None, password=None):
+        _LOGGER.debug("start add manually: %s" % ip_address)
+        if (username and password):
+            pass
+        elif (self.master_username and self.master_password):
+            username = self.master_username
+            password = self.master_password
+        settings = Call_shelly_api(
+                ip_address, '/settings',
+                username, password)
+        if settings is not None:
+            device_id = get_device_id(settings.get("device").get("hostname")) if (
+                settings.get("device").get("hostname")) else ip_address
+            if device_id not in self.coloT_blocks:
+                self.coloT_blocks[device_id] = Shelly_block(
+                    device_id, None, self, ip_address, 0, username, password, settings,
+                    useCoAP=False
                     )
-                self.mqtt = (
-                    Mqtt() if 'mqtt' not in json_obj else Mqtt(json.dumps(json_obj['mqtt'])))
-                self.cloud = (
-                    Cloud() if 'cloud' not in json_obj else Cloud(json.dumps(json_obj['cloud'])))
-                self.wifi_sta = (
-                    Wifi_sta() if 'wifi_sta' not in json_obj
-                    else Wifi_sta(json.dumps(json_obj['wifi_sta']))
-                    )
-                if self.working_mode_raw is None or self.working_mode_raw == WORKING_MODE_ROLLER:
-                    rollers_dict = (
-                        None if 'rollers' not in json_obj else json_obj['rollers'])
-                    self.rollers = (
-                        None if rollers_dict is None
-                        else list(map(lambda x: Roller(json.dumps(x)), rollers_dict))
-                        )
-                if self.working_mode_raw is None or self.working_mode_raw == WORKING_MODE_RELAY:
-                    relays_dict = (
-                        None if 'relays' not in json_obj else json_obj['relays'])
-                    self.relays = (
-                        None if relays_dict is None
-                        else list(map(lambda x: Relay(json.dumps(x)), relays_dict))
-                        )
-
-            except json.JSONDecodeError as err:
-                raise ShellyException(err)
-        except ShellyException as err:
-            _LOGGER.debug(err)
-            self.main_status = DEVICE_NOT_READY
-
-        _LOGGER.debug("main_status: %s", self.main_status)
-
-        return self
-
-    def __get_base_info_api(self):
-        """Get RAW shelly base info"""
-        try:
-            return Call_shelly_api(
-                baseurl=self.__api_address,
-                url="/settings",
-                username=self.username,
-                password=self.password)
-        except ShellyException as err:
-            _LOGGER.debug(err)
-
-    def __set_base_info_api(self, json_response):
-        """Get Shelly status thought api"""
-        try:
-            try:
-                json_obj = None
-                if json_response is None:
-                    json_response = "{}"
-                json_obj = json.loads(json_response)
-
-                self.host_name = (
-                    None
-                    if 'device' not in json_obj or 'hostname' not in json_obj['device']
-                    else json_obj['device']['hostname'])
-                self.model_raw = (
-                    None
-                    if 'device' not in json_obj or 'type' not in json_obj['device']
-                    else json_obj['device']['type']
-                    )
-                self.model = Get_item_safe(SHELLY_MODEL, self.model_raw, 'undefined')
-                self.working_mode_raw = (
-                    None
-                    if 'mode' not in json_obj
-                    else json_obj['mode']
-                    )
-                self.working_mode = (
-                    Get_item_safe(SHELLY_WORKING_MODE, self.working_mode_raw, 'undefined'))
-
-            except json.JSONDecodeError as err:
-                _LOGGER.error("Error during parse json result.")
-                raise ShellyException(err)
-        except ShellyException as err:
-            _LOGGER.debug(err)
-            self.main_status = DEVICE_NOT_READY
-
-        _LOGGER.debug("main_status: %s", self.main_status)
-
-
-class BaseShellyAttribute():
-    """Represents Sehlly base class"""
-
-    def __init__(self, json_def=None):
-        """Initialize Wifi_sta class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-    def as_dict(self):
-        return self.__dict__
-
-
-class System(BaseShellyAttribute):
-    """Represents System attributes"""
-
-    def __init__(self, json_def=None):
-        """Initialize System class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-
-        self.mac = None if 'mac' not in json_obj else json_obj['mac']
-        self.ram_total = None if 'ram_total' not in json_obj else json_obj['ram_total']
-        self.ram_free = None if 'ram_free' not in json_obj else json_obj['ram_free']
-        self.fs_size = None if 'fs_size' not in json_obj else json_obj['fs_size']
-        self.fs_free = None if 'fs_free' not in json_obj else json_obj['fs_free']
-        self.uptime = None if 'uptime' not in json_obj else json_obj['uptime']
-        self.has_update = False if 'has_update' not in json_obj else json_obj['has_update']
-
-
-class Roller(BaseShellyAttribute):
-    """Represents roller shutter base class"""
-
-    def __init__(self, json_def=None):
-        """Initialize System class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-        if (json_obj is not None and
-                'positioning' in json_obj and
-                json_obj['positioning'] and
-                'current_pos' in json_obj):
-            self.status = json_obj['current_pos']
-        else:
-            self.status = (
-                json_obj['state']
-                if 'current_pos' in json_obj else UNDEFINED_VALUE
-                )
-
-
-class Relay(BaseShellyAttribute):
-    """Represents relay base class"""
-
-    def __init__(self, json_def=None):
-        """Initialize System class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-        self.status = (
-            ISON_OFF if 'ison' not in json_obj
-            else ISON_ON if json_obj['ison'] else ISON_OFF
-            )
-
-
-class Wifi_sta(BaseShellyAttribute):
-    """Represents Wifi_sta attributes"""
-
-    def __init__(self, json_def=None):
-        """Initialize Wifi_sta class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-        self.connected = False if 'connected' not in json_obj else json_obj['connected']
-        self.ssid = None if 'ssid' not in json_obj else json_obj['ssid']
-        self.ip = None if 'ip' not in json_obj else json_obj['ip']
-        self.rssi = None if 'rssi' not in json_obj else json_obj['rssi']
-        self.quality = Rssi_to_percentage(self.rssi)
-
-
-class Cloud(BaseShellyAttribute):
-    """Represents Cloud attributes"""
-
-    def __init__(self, json_def=None):
-        """Initialize Cloud class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-        self.connected = False if 'connected' not in json_obj else json_obj['connected']
-        self.enabled = False if 'connected' not in json_obj else json_obj['connected']
-
-
-class Mqtt(BaseShellyAttribute):
-    """Represents Mqtt attributes"""
-
-    def __init__(self, json_def=None):
-        """Initialize Mqtt class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-        self.connected = False if 'connected' not in json_obj else json_obj['connected']
-
-
-class Firmware(BaseShellyAttribute):
-    """Represents Firmware attributes"""
-
-    def __init__(self, json_def=None):
-        """Initialize Firmware class"""
-        if json_def is None:
-            json_obj = {}
-        else:
-            json_obj = json.loads(json_def)
-        self.__dict__ = json_obj
-
-        self.has_update = False if 'has_update' not in json_obj else json_obj['has_update']
-        self.new_version = None if 'new_version' not in json_obj else json_obj['new_version']
-        self.old_version = None if 'old_version' not in json_obj else json_obj['old_version']
-        self.status = None if 'status' not in json_obj else json_obj['status']
+                for callback in self.coloT_blocks_added:
+                    callback(self.coloT_blocks[device_id])
+            elif username and password:
+                self.coloT_blocks[device_id].username = username
+                self.coloT_blocks[device_id].password = password
+                for callback in self.coloT_blocks_updated:
+                    callback(self.coloT_blocks[device_id])
+        _LOGGER.debug("end manually add: %s" % ip_address)

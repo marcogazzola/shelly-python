@@ -1,1 +1,2 @@
-__version__ = '0.1.1'
+from .const import VERSION
+__version__ = VERSION
