@@ -1,7 +1,7 @@
 import json
 from .const import (
     WORKING_MODE_ROLLER, ISON_ON, ISON_OFF,
-    UNDEFINED_VALUE)
+    UNDEFINED_VALUE, COAP_CONFIG)
 from .helpers import (Call_shelly_api, Rssi_to_percentage)
 from .device import (ShellyUnknown, ShellyRelay, ShellyRoller, ShellyPowerMeter)
 import logging
@@ -144,6 +144,8 @@ class Shelly_block():
         self.updated = []
         self.api_settings = api_settings
         self.useCoAP = useCoAP
+        self.blk = {}
+        self.sensor = {}
         self._setup()
 
     def _block_updated(self):
@@ -216,9 +218,28 @@ class Shelly_block():
             if self.api_settings.get('mode') == WORKING_MODE_ROLLER:
                 self._add_device(ShellyRoller(self))
             else:
-                self._add_device(ShellyRelay(self, 1, 0, 2))
-                self._add_device(ShellyRelay(self, 2, 1, 2))
-            self._add_device(ShellyPowerMeter(self, 0, 2))
+                self._add_device(ShellyRelay(
+                    self, 1,
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('relay').get(0),
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('power').get(0)
+                    ))
+                self._add_device(ShellyRelay(
+                    self, 2,
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('relay').get(1),
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('power').get(1)
+                    ))
+            self._add_device(ShellyPowerMeter(
+                self, 0, COAP_CONFIG.get(
+                    self.shelly_type, {}).get(
+                        self.api_settings.get('mode'), {}).get('power').get(0)))
         elif self.shelly_type == 'SHSW-25':
             self.api_settings = (
                 self.api_settings if self.api_settings is not None else Call_shelly_api(
@@ -228,10 +249,32 @@ class Shelly_block():
             if self.api_settings.get('mode') == WORKING_MODE_ROLLER:
                 self._add_device(ShellyRoller(self))
             else:
-                self._add_device(ShellyRelay(self, 1, 0, 2))
-                self._add_device(ShellyRelay(self, 2, 1, 3))
-                self._add_device(ShellyPowerMeter(self, 1, 2))
-                self._add_device(ShellyPowerMeter(self, 2, 3))
+                self._add_device(ShellyRelay(
+                    self, 1,
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('relay').get(0),
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('power').get(0)
+                    ))
+                self._add_device(ShellyRelay(
+                    self, 2,
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('relay').get(1),
+                    COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('power').get(1)
+                    ))
+                self._add_device(ShellyPowerMeter(
+                    self, 1, COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('power').get(0)))
+                self._add_device(ShellyPowerMeter(
+                    self, 2, COAP_CONFIG.get(
+                        self.shelly_type, {}).get(
+                            self.api_settings.get('mode'), {}).get('power').get(1)))
         # elif self.shelly_type == 'SHSW-22':
         #     self._add_device(pyShellyRelay(self, 1, 0, 1))
         #     self._add_device(pyShellyRelay(self, 2, 2, 3))
@@ -243,14 +286,18 @@ class Shelly_block():
         # elif self.shelly_type == 'SHEM-1':
         #     self._add_device(pyShellyRelay(self, 1, 0, 1))
         elif self.shelly_type == 'SHSW-1' or self.shelly_type == 'SHSK-1':
-            self._add_device(ShellyRelay(self, 0, 0))
+            self._add_device(ShellyRelay(
+                self, 0,
+                COAP_CONFIG.get(self.shelly_type, {}).get('relay').get(0)
+                ))
         elif self.shelly_type == 'SHSW-44':
             for channel in range(4):
                 self._add_device(
                     ShellyRelay(
-                        self, channel + 1, channel * 2 + 1,
-                        channel * 2)
-                        )
+                        self, channel + 1,
+                        COAP_CONFIG.get(self.shelly_type, {}).get('relay', {}).get(channel),
+                        COAP_CONFIG.get(self.shelly_type, {}).get('power', {}).get(channel)
+                        ))
         # elif self.shelly_type == 'SHRGBWW-01':
         #     self._add_device(pyShellyRGBWW(self))
         # elif self.shelly_type == 'SHPLG-1' or self.shelly_type == 'SHPLG2-1':

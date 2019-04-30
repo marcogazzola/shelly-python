@@ -185,8 +185,9 @@ class Shelly():
                         for callback in self.coloT_blocks_added:
                             callback(self.coloT_blocks[id])
                     if code == 30:
+                        payload_json = {d[1]: d[2] for d in json.loads(payload)['G']}
                         self.coloT_blocks[id].useCoAP = True
-                        self.coloT_blocks[id].update(json.loads(payload), addr[0])
+                        self.coloT_blocks[id].update(payload_json, addr[0])
                         for callback in self.coloT_blocks_updated:
                             callback(self.coloT_blocks[id])
 

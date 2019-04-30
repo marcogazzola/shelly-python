@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 from .helpers import Call_shelly_api
-from .const import SHELLY_MODEL
+from .const import (SHELLY_MODEL, COAP_CONFIG)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,10 +106,10 @@ class ShellyRelay(ShellyDevice):
         self.device_type = "RELAY"
 
     def update(self, data):
-        new_state = data['G'][self._pos][2] == 1
+        new_state = data.get(self._pos) == 1
         new_values = None
         if self._power is not None:
-            watt = data['G'][self._power][2]
+            watt = data.get(self._power)
             new_values = {'watt': watt}
         self._update(new_state, None, new_values)
 
@@ -130,10 +130,41 @@ class ShellyRoller(ShellyDevice):
         self.support_position = False
         self.motion_state = None
         self.last_direction = None
-        self.update_settings()
 
     def update(self, data):
-        watt = data['G'][2][2]
+        watt1 = COAP_CONFIG.get(
+            self.shelly_type, {}).get(
+                self.coloT_block.api_settings.get('mode'), {}).get(
+                    'power', {}).get(
+                        0, 0)
+        watt2 = COAP_CONFIG.get(
+            self.shelly_type, {}).get(
+                self.coloT_block.api_settings.get('mode'), {}).get(
+                    'power', {}).get(
+                        1, 0)
+
+        watt = data.get(watt1, 0) + data.get(watt2, 0)
+
+        if data.get(
+            COAP_CONFIG.get(
+                self.shelly_type, {}).get(
+                    self.coloT_block.api_settings.get('mode'), {}).get(
+                        'open')):
+            self.motion_state = "open"
+        if data.get(
+            COAP_CONFIG.get(
+                self.shelly_type, {}).get(
+                    self.coloT_block.api_settings.get('mode'), {}).get(
+                        'close')):
+            self.motion_state = "close"
+        if self.motion_state:
+            self.last_direction = self.motion_state
+        self.position = data.get(
+            COAP_CONFIG.get(
+                self.shelly_type, {}).get(
+                    self.coloT_block.api_settings.get('mode'), {}).get(
+                        'position'))
+
         state = self.position != 0
         self.update_settings()
         self._update(state, None, {'watt': watt})
@@ -174,5 +205,5 @@ class ShellyPowerMeter(ShellyDevice):
         self.device_type = "POWERMETER"
 
     def update(self, data):
-        watt = data['G'][self._pos][2]
+        watt = data.get(self._pos)
         self._update(None, None, {'watt': watt})

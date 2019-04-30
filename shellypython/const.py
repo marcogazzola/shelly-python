@@ -29,3 +29,50 @@ UNDEFINED_VALUE = 'Undefined'
 
 COAP_IP = "224.0.1.187"
 COAP_PORT = 5683
+COAP_CONFIG = {
+    'SHSW-25': {
+        'relay': {
+            'relay': {
+                0: '112',
+                1: '122'
+            },
+            'power': {
+                0: '111',
+                1: '121'
+            }
+        },
+        'roller': {
+            'open': '112',
+            'close': '122',
+            'position': '113',
+            'power': {
+                0: '111',
+                1: '121'
+            }
+        }
+    },
+    'SHSW-21': {
+       'relay': {
+            'relay': {
+                0: '112',
+                1: '122'
+            },
+            'power': {
+                0: '111'
+            }
+        },
+        'roller': {
+            'open': '112',
+            'close': '122',
+            'position': '113',
+            'power': {
+                0: '111'
+            }
+        }
+    },
+    'SHSW-1': {
+        'relay': {
+            0: '112'
+        }
+    }
+}
